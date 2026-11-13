@@ -2,26 +2,12 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * @property int $id
- * @property int $client_id
- * @property string $judul
- * @property string $deskripsi
- * @property string $kategori
- * @property int $budget_min
- * @property int $budget_max
- * @property Carbon|string $batas_lelang
- * @property string $status
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- */
 class Project extends Model
 {
     use HasFactory;
@@ -41,8 +27,8 @@ class Project extends Model
     {
         return [
             'batas_lelang' => 'date',
-            'budget_min'   => 'integer',
-            'budget_max'   => 'integer',
+            'budget_min' => 'integer',
+            'budget_max' => 'integer',
         ];
     }
 
@@ -67,11 +53,7 @@ class Project extends Model
      */
     public function isOpen(): bool
     {
-        $batas = $this->batas_lelang instanceof Carbon
-            ? $this->batas_lelang->format('Y-m-d')
-            : (is_string($this->batas_lelang) ? $this->batas_lelang : Carbon::parse($this->batas_lelang)->format('Y-m-d'));
-
-        return $this->status === 'terbuka' && $batas >= date('Y-m-d');
+        return $this->status === 'terbuka' && $this->batas_lelang >= date('Y-m-d');
     }
 
     /**
@@ -83,7 +65,7 @@ class Project extends Model
             $keyword = trim($keyword);
             $query->where(function (Builder $q) use ($keyword) {
                 $q->where('judul', 'like', "%{$keyword}%")
-                  ->orWhere('kategori', 'like', "%{$keyword}%");
+                    ->orWhere('kategori', 'like', "%{$keyword}%");
             });
         }
         return $query;
