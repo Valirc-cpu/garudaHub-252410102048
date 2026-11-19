@@ -15,8 +15,10 @@ class ProjectController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = $request->query('q', '');
-        $query = is_string($query) ? mb_substr(trim($query), 0, 100) : '';
+        $rawQuery = $request->query('q', '');
+        $query = is_string($rawQuery) ? mb_substr(trim($rawQuery), 0, 100) : '';
+        // Sanitasi karakter kontrol non-printable
+        $query = preg_replace('/[\x00-\x1F\x7F]/u', '', $query) ?? '';
 
         $projects = Project::with('client')
             ->withCount('bids')

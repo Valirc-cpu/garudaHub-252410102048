@@ -94,6 +94,8 @@ class AuthController extends Controller
             'role'     => $validated['role'],
         ]);
 
+        $request->session()->regenerateToken();
+
         return redirect()->route('login')
             ->with('flash', ['Pendaftaran berhasil. Silakan masuk.', 'ok']);
     }

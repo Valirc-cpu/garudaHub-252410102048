@@ -58,14 +58,16 @@ class Project extends Model
 
     /**
      * Scope untuk pencarian berdasarkan judul atau kategori.
+     * Meng-escape wildcard karakter LIKE (%, _, \) untuk mencegah wildcard injection.
      */
     public function scopeSearch(Builder $query, ?string $keyword): Builder
     {
         if (!empty($keyword)) {
             $keyword = trim($keyword);
-            $query->where(function (Builder $q) use ($keyword) {
-                $q->where('judul', 'like', "%{$keyword}%")
-                    ->orWhere('kategori', 'like', "%{$keyword}%");
+            $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $keyword);
+            $query->where(function (Builder $q) use ($escaped) {
+                $q->where('judul', 'like', "%{$escaped}%")
+                    ->orWhere('kategori', 'like', "%{$escaped}%");
             });
         }
         return $query;

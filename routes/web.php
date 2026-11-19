@@ -13,7 +13,7 @@ Route::get('/', function (Request $request) {
     if ($request->has('page')) {
         $page = $request->query('page');
         return match ($page) {
-            'project'   => redirect()->route('projects.show', ['id' => $request->query('id')]),
+            'project'   => redirect()->route('projects.show', ['id' => (int) $request->query('id')]),
             'login'     => redirect()->route('login'),
             'register'  => redirect()->route('register'),
             'post'      => redirect()->route('projects.create'),
@@ -25,15 +25,15 @@ Route::get('/', function (Request $request) {
     return app(ProjectController::class)->index($request);
 })->name('home');
 
-Route::get('/project/{id}', [ProjectController::class, 'show'])->name('projects.show');
+Route::get('/project/{id}', [ProjectController::class, 'show'])->whereNumber('id')->name('projects.show');
 
-// Autentikasi (Tamu)
+// Autentikasi (Tamu) dengan proteksi brute force rate limiting
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
-    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 });
 
 // Logout (User terautentikasi)
