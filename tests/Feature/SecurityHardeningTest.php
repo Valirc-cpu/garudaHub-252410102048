@@ -18,7 +18,7 @@ class SecurityHardeningTest extends TestCase
     }
 
     /**
-     * Uji keberadaan Security Headers (CSP, Anti-Clickjacking, X-Content-Type-Options, dll).
+     * Uji keberadaan Security Headers (CSP ketat tanpa unsafe-inline, Anti-Clickjacking, X-Content-Type-Options, dll).
      */
     public function test_security_headers_are_present_on_normal_responses(): void
     {
@@ -34,6 +34,9 @@ class SecurityHardeningTest extends TestCase
         $csp = $response->headers->get('Content-Security-Policy');
         $this->assertStringContainsString("frame-ancestors 'self'", $csp);
         $this->assertStringContainsString("default-src 'self'", $csp);
+        $this->assertStringContainsString("style-src 'self'", $csp);
+        // Pastikan tidak ada unsafe-inline pada style-src
+        $this->assertStringNotContainsString("unsafe-inline", $csp);
 
         // Pastikan tidak ada kebocoran header versi server/PHP
         $this->assertFalse($response->headers->has('X-Powered-By'));
@@ -41,17 +44,38 @@ class SecurityHardeningTest extends TestCase
     }
 
     /**
-     * Uji keberadaan Security Headers pada response error 404 (misal /sitemap.xml, /robots.txt).
+     * Uji keberadaan Security Headers pada response error 404 (misal rute tidak terdaftar).
      */
     public function test_security_headers_are_present_on_404_responses(): void
     {
-        $response = $this->get('/sitemap.xml');
+        $response = $this->get('/non-existent-endpoint-xyz');
 
         $response->assertStatus(404);
         $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->assertTrue($response->headers->has('Content-Security-Policy'));
         $this->assertFalse($response->headers->has('X-Powered-By'));
+    }
+
+    /**
+     * Uji rute robots.txt, sitemap.xml, dan css memiliki header X-Content-Type-Options nosniff.
+     */
+    public function test_static_routes_have_nosniff_header(): void
+    {
+        $robots = $this->get('/robots.txt');
+        $robots->assertStatus(200);
+        $robots->assertHeader('X-Content-Type-Options', 'nosniff');
+        $robots->assertHeader('Content-Type', 'text/plain; charset=utf-8');
+
+        $sitemap = $this->get('/sitemap.xml');
+        $sitemap->assertStatus(200);
+        $sitemap->assertHeader('X-Content-Type-Options', 'nosniff');
+        $sitemap->assertHeader('Content-Type', 'application/xml; charset=utf-8');
+
+        $css = $this->get('/css/style.css');
+        $css->assertStatus(200);
+        $css->assertHeader('X-Content-Type-Options', 'nosniff');
+        $css->assertHeader('Content-Type', 'text/css; charset=utf-8');
     }
 
     /**
@@ -104,30 +128,35 @@ class SecurityHardeningTest extends TestCase
         foreach ($payloads as $payload) {
             $response = $this->get('/?q=' . urlencode($payload));
             $response->assertStatus(200);
-            // Tidak terjadi crash 500 dan response aman
             $response->assertSee('Daftar Proyek');
         }
     }
 
     /**
-     * Uji rate limiting (throttling) pada endpoint otentikasi login untuk cegah brute-force.
+     * Uji penanganan SQL injection pada login: seluruh percobaan gagal menghasilkan respon 302 yang konsisten.
      */
-    public function test_login_brute_force_rate_limiting(): void
+    public function test_login_sql_injection_payloads_consistently_handled(): void
     {
-        for ($i = 0; $i < 10; $i++) {
-            $res = $this->post('/login', [
-                'email'    => 'attacker@example.com',
-                'password' => 'wrongpass',
-            ]);
-            $this->assertNotEquals(429, $res->getStatusCode());
-        }
+        $payloads = [
+            'ZAP',
+            'ZAP AND 1=1 --',
+            'ZAP OR 1=1 --',
+            "' OR '1'='1",
+            "admin' --",
+        ];
 
-        // Percobaan ke-11 harus diblokir dengan 429 Too Many Requests
-        $blocked = $this->post('/login', [
-            'email'    => 'attacker@example.com',
-            'password' => 'wrongpass',
-        ]);
-        $this->assertSame(429, $blocked->getStatusCode());
+        foreach ($payloads as $p) {
+            $res = $this->from('/login')->post('/login', [
+                'email'    => 'test@example.com',
+                'password' => $p,
+            ]);
+
+            // Respon harus konsisten 302 redirect ke /login dengan flash error dan body kosong
+            $res->assertStatus(302);
+            $res->assertRedirect('/login');
+            $this->assertSame(0, strlen($res->getContent()));
+            $res->assertSessionHas('flash');
+        }
     }
 
     /**

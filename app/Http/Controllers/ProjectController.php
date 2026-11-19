@@ -17,8 +17,8 @@ class ProjectController extends Controller
     {
         $rawQuery = $request->query('q', '');
         $query = is_string($rawQuery) ? mb_substr(trim($rawQuery), 0, 100) : '';
-        // Sanitasi karakter kontrol non-printable
-        $query = preg_replace('/[\x00-\x1F\x7F]/u', '', $query) ?? '';
+        // Sanitasi karakter: hanya izinkan karakter alfanumerik, spasi, dan tanda baca aman
+        $query = preg_replace('/[^\p{L}\p{N}\s\-_.@]/u', '', $query) ?? '';
 
         $projects = Project::with('client')
             ->withCount('bids')

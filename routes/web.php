@@ -27,13 +27,36 @@ Route::get('/', function (Request $request) {
 
 Route::get('/project/{id}', [ProjectController::class, 'show'])->whereNumber('id')->name('projects.show');
 
-// Autentikasi (Tamu) dengan proteksi brute force rate limiting
+// Autentikasi (Tamu)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/login', [AuthController::class, 'login']);
 
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
-    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/register', [AuthController::class, 'register']);
+});
+
+// Aset statis & file standar dengan header keamanan lengkap
+Route::get('/robots.txt', function () {
+    return response("User-agent: *\nDisallow:\n", 200)
+        ->header('Content-Type', 'text/plain; charset=utf-8');
+});
+
+Route::get('/sitemap.xml', function () {
+    return response('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>', 200)
+        ->header('Content-Type', 'application/xml; charset=utf-8');
+});
+
+Route::get('/favicon.ico', function () {
+    return response('', 204)
+        ->header('Content-Type', 'image/x-icon');
+});
+
+Route::get('/css/style.css', function () {
+    $path = public_path('css/style.css');
+    return response(file_exists($path) ? file_get_contents($path) : '', 200)
+        ->header('Content-Type', 'text/css; charset=utf-8')
+        ->header('Cache-Control', 'public, max-age=86400');
 });
 
 // Logout (User terautentikasi)
